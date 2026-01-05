@@ -1,25 +1,27 @@
 #!/bin/bash
 set -e
 
-# Install OpenJDK 17
-sudo apt-get update
-sudo apt-get install -y openjdk-17-jdk
+# Use pre-installed Java if available
+if command -v java &> /dev/null; then
+    export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+    echo "Using existing Java: $JAVA_HOME"
+else
+    # Install OpenJDK 17 without sudo
+    apt-get update
+    apt-get install -y openjdk-17-jdk
+    export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+fi
 
-# Find and set JAVA_HOME
-export JAVA_HOME=$(readlink -f /usr/bin/java | sed "s:bin/java::")
-echo "JAVA_HOME set to: $JAVA_HOME"
+echo "JAVA_HOME: $JAVA_HOME"
+export PATH=$JAVA_HOME/bin:$PATH
 
-# Verify Java installation
+# Verify Java
 java -version
-javac -version
 
 # Install Maven
-wget https://archive.apache.org/dist/maven/maven-3/3.9.4/binaries/apache-maven-3.9.4-bin.tar.gz
+wget -q https://archive.apache.org/dist/maven/maven-3/3.9.4/binaries/apache-maven-3.9.4-bin.tar.gz
 tar xzf apache-maven-3.9.4-bin.tar.gz
 export PATH=$PWD/apache-maven-3.9.4/bin:$PATH
-
-# Verify Maven installation
-mvn -version
 
 # Build project
 mvn clean package -DskipTests
