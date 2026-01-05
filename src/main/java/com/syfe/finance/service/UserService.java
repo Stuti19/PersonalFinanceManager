@@ -8,7 +8,14 @@ import com.syfe.finance.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Service;
 
 /**
@@ -26,6 +33,12 @@ public class UserService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private AuthenticationManager authenticationManager;
+
+    private final SecurityContextRepository securityContextRepository = 
+        new HttpSessionSecurityContextRepository();
 
     /**
      * Registers a new user in the system.
@@ -59,22 +72,41 @@ public class UserService {
      * @throws UnauthorizedException if credentials are invalid
      */
     public AuthResponse login(LoginRequest request, HttpServletRequest httpRequest) {
-        User user = userRepository.findByUsername(request.getUsername())
-            .orElseThrow(() -> new UnauthorizedException("Invalid credentials"));
+        try {
+            // Authenticate user using Spring Security
+            Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                    request.getUsername(),
+                    request.getPassword()
+                )
+            );
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            // Create security context and store in session
+            SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
+            securityContext.setAuthentication(authentication);
+            SecurityContextHolder.setContext(securityContext);
+
+            // Save security context to session
+            securityContextRepository.saveContext(securityContext, httpRequest, null);
+
+            // Also store userId in session for backward compatibility
+            User user = userRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new UnauthorizedException("User not found"));
+            HttpSession session = httpRequest.getSession(true);
+            session.setAttribute("userId", user.getId());
+            session.setMaxInactiveInterval(30 * 60); // 30 minutes
+
+            return new AuthResponse("Login successful");
+        } catch (org.springframework.security.core.AuthenticationException e) {
             throw new UnauthorizedException("Invalid credentials");
         }
-
-        // Create session
-        HttpSession session = httpRequest.getSession(true);
-        session.setAttribute("userId", user.getId());
-        session.setMaxInactiveInterval(30 * 60); // 30 minutes
-
-        return new AuthResponse("Login successful");
     }
 
     public AuthResponse logout(HttpServletRequest request) {
+        // Clear Spring Security context
+        SecurityContextHolder.clearContext();
+        
+        // Invalidate session
         HttpSession session = request.getSession(false);
         if (session != null) {
             session.invalidate();
@@ -83,6 +115,16 @@ public class UserService {
     }
 
     public User getCurrentUser(HttpServletRequest request) {
+        // Try to get user from Spring Security context first
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated() 
+            && authentication.getPrincipal() instanceof org.springframework.security.core.userdetails.UserDetails) {
+            String username = authentication.getName();
+            return userRepository.findByUsername(username)
+                .orElseThrow(() -> new UnauthorizedException("User not found"));
+        }
+
+        // Fallback to session-based approach for backward compatibility
         HttpSession session = request.getSession(false);
         if (session == null) {
             throw new UnauthorizedException("No active session");
