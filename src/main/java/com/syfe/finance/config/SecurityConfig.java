@@ -33,6 +33,9 @@ public class SecurityConfig {
                 .sessionCreationPolicy(org.springframework.security.config.http.SessionCreationPolicy.IF_REQUIRED)
                 .maximumSessions(10)
                 .maxSessionsPreventsLogin(false)
+                .and()
+                .sessionFixation().migrateSession()
+                .invalidSessionUrl("/api/auth/login")
             )
             .exceptionHandling(exceptions -> exceptions
                 .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
