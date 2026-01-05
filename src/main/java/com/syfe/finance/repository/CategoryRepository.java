@@ -20,4 +20,10 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     List<Category> findByUserAndIsCustomTrue(User user);
     
     boolean existsByNameAndUser(String name, User user);
+    
+    boolean existsByNameAndUserIsNull(String name);
+    
+    List<Category> findByUserIsNull();
+    
+    List<Category> findByUser(User user);
 }

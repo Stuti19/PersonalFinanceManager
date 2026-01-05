@@ -53,6 +53,8 @@ public class Category {
 
     public boolean isCustom() { return isCustom; }
     public void setCustom(boolean custom) { isCustom = custom; }
+    public void setIsCustom(boolean custom) { isCustom = custom; }
+    public Boolean getIsCustom() { return isCustom; }
 
     public User getUser() { return user; }
     public void setUser(User user) { this.user = user; }
