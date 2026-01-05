@@ -120,27 +120,24 @@ public class UserService {
     }
 
     public User getCurrentUser(HttpServletRequest request) {
-        // Try to get user from Spring Security context first
+        // Only use Spring Security authentication - no fallback to ensure proper validation
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated() 
-            && authentication.getPrincipal() instanceof org.springframework.security.core.userdetails.UserDetails) {
-            String username = authentication.getName();
-            return userRepository.findByUsername(username)
-                .orElseThrow(() -> new UnauthorizedException("User not found"));
-        }
-
-        // Fallback to session-based approach for backward compatibility
-        HttpSession session = request.getSession(false);
-        if (session == null) {
+        
+        if (authentication == null || !authentication.isAuthenticated()) {
             throw new UnauthorizedException("No active session");
         }
-
-        Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            throw new UnauthorizedException("No active session");
+        
+        // Verify the authentication principal is valid
+        if (!(authentication.getPrincipal() instanceof org.springframework.security.core.userdetails.UserDetails)) {
+            throw new UnauthorizedException("Invalid authentication");
         }
-
-        return userRepository.findById(userId)
+        
+        String username = authentication.getName();
+        if (username == null || username.isEmpty()) {
+            throw new UnauthorizedException("Invalid authentication");
+        }
+        
+        return userRepository.findByUsername(username)
             .orElseThrow(() -> new UnauthorizedException("User not found"));
     }
 }
