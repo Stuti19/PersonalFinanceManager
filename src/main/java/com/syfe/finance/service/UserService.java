@@ -6,6 +6,7 @@ import com.syfe.finance.exception.DuplicateResourceException;
 import com.syfe.finance.exception.UnauthorizedException;
 import com.syfe.finance.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -68,10 +69,11 @@ public class UserService {
      * 
      * @param request the login request with username and password
      * @param httpRequest the HTTP request to create session
+     * @param httpResponse the HTTP response to set session cookie
      * @return AuthResponse with success message
      * @throws UnauthorizedException if credentials are invalid
      */
-    public AuthResponse login(LoginRequest request, HttpServletRequest httpRequest) {
+    public AuthResponse login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         try {
             // Authenticate user using Spring Security
             Authentication authentication = authenticationManager.authenticate(
@@ -86,8 +88,8 @@ public class UserService {
             securityContext.setAuthentication(authentication);
             SecurityContextHolder.setContext(securityContext);
 
-            // Save security context to session
-            securityContextRepository.saveContext(securityContext, httpRequest, null);
+            // Save security context to session (this will set the JSESSIONID cookie)
+            securityContextRepository.saveContext(securityContext, httpRequest, httpResponse);
 
             // Also store userId in session for backward compatibility
             User user = userRepository.findByUsername(request.getUsername())
@@ -102,9 +104,12 @@ public class UserService {
         }
     }
 
-    public AuthResponse logout(HttpServletRequest request) {
+    public AuthResponse logout(HttpServletRequest request, HttpServletResponse httpResponse) {
         // Clear Spring Security context
-        SecurityContextHolder.clearContext();
+        SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
+        SecurityContextHolder.setContext(securityContext);
+        // Save empty context to clear it from session
+        securityContextRepository.saveContext(securityContext, request, httpResponse);
         
         // Invalidate session
         HttpSession session = request.getSession(false);

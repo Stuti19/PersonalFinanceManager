@@ -24,14 +24,16 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request, 
-                                            HttpServletRequest httpRequest) {
-        AuthResponse response = userService.login(request, httpRequest);
+                                            HttpServletRequest httpRequest,
+                                            jakarta.servlet.http.HttpServletResponse httpResponse) {
+        AuthResponse response = userService.login(request, httpRequest, httpResponse);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<AuthResponse> logout(HttpServletRequest request) {
-        AuthResponse response = userService.logout(request);
+    public ResponseEntity<AuthResponse> logout(HttpServletRequest request,
+                                               jakarta.servlet.http.HttpServletResponse httpResponse) {
+        AuthResponse response = userService.logout(request, httpResponse);
         return ResponseEntity.ok(response);
     }
 }
